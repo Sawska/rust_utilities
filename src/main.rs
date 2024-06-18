@@ -45,16 +45,27 @@ fn echo(arguments: Vec<String>) {
         return;
     }
 
+
+    if arguments.len() >= 3 {
+        if arguments[2] == "-e"
+        {
+            println!("{}",arguments[3..].join("").replace(" ", ""));
+            return;        
+        } 
+    }
+
     let print_rest = arguments[2..].join(" ");
     println!("{}", print_rest);
 }
 
 fn ls(arguments: Vec<String>) {
-    let path_str = if arguments.len() <= 2 {
+
+    // ls -a
+    let path_str = if arguments.len() <= 2 && arguments[2] != "-a" {
     let current_dir = env::current_dir();
     let binding = current_dir.unwrap();
         binding.as_path().to_str().unwrap().to_string()
-    } else {
+    } else  {
         arguments[2..].join("")
     };
 
@@ -189,17 +200,35 @@ fn cat(arguments: Vec<String>) {
         return;
     }
 
-    let files = &arguments[2..];
+    let mut count_lines = false;
+
+    if arguments.len() >= 3 && arguments[2] == "-n" {
+        count_lines = true;
+    }
+
+    let start_index = if count_lines { 3 } else { 2 };
+    let files = &arguments[start_index..];
     let mut lines: Vec<String> = Vec::new();
     let current_dir = env::current_dir();
     let binding = current_dir.unwrap();
     let current_path = binding.as_path();
 
     for file_name in files {
-        match locate_file(file_name,current_path.to_str().unwrap()) {
+        match locate_file(file_name, current_path.to_str().unwrap()) {
             Some(path) => {
                 match print_file(&path) {
-                    Ok(content) => lines.push(content),
+                    Ok(content) => {
+                        let mut i = 1;
+                        for ln in content.split('\n') {
+                            let res = if count_lines {
+                                format!("{:>6}\t{}", i, ln)
+                            } else {
+                                ln.to_string()
+                            };
+                            lines.push(res);
+                            i += 1;
+                        }
+                    }
                     Err(e) => {
                         error("cat", &format!("Error reading file '{}': {}", file_name, e));
                         return;
@@ -250,34 +279,47 @@ fn print_file(file_path: &str) -> io::Result<String> {
     Ok(content)
 }
 fn grep(arguments: Vec<String>) {
-    if arguments.len() <= 3 {
+    if (arguments.len() <= 3) || (arguments[2] == "-c" && arguments.len() < 5) {
         error("grep", "not enough arguments");
         return;
     }
+    let mut count = false;
+    let (text, file_name): (&str, &str);
 
-    let text = &arguments[2];
-    let file_name = &arguments[3];
+    if arguments[2] == "-c" {
+        count = true;
+        text = &arguments[3];
+        file_name = &arguments[4];
+    } else {
+        text = &arguments[2];
+        file_name = &arguments[3];
+    }
 
-    let current_dir = env::current_dir().unwrap_or_else(|e| {
-        error("grep", &format!("Error getting current directory: {}", e));
-        std::process::exit(1);
-    });
+    let current_dir = match env::current_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            error("grep", &format!("Error getting current directory: {}", e));
+            return;
+        }
+    };
 
-    let path = locate_file(file_name, &current_dir.to_str().unwrap());
-    let file_path = match path {
-        Some(p) => p,
+    let file_path = match locate_file(file_name, current_dir.to_str().unwrap()) {
+        Some(path) => path,
         None => {
-            println!("File '{}' not found in directory '{}'", file_name, current_dir.display());
+            error("grep", &format!("File '{}' not found in directory '{}'", file_name, current_dir.display()));
             return;
         }
     };
 
     let lines = check_if_contains(&file_path, text);
 
-    
-
-    print_lines(lines,text);
+    if count {
+        println!("{}", lines.len());
+    } else {
+        print_lines(lines,text);
+    }
 }
+
 fn print_lines(lines: Vec<String>, text: &str) {
     for line in lines {
         if let Some(index) = line.find(text) {
