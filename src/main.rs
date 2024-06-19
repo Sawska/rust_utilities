@@ -59,21 +59,27 @@ fn echo(arguments: Vec<String>) {
 }
 
 fn ls(arguments: Vec<String>) {
-
-    // ls -a
-    let path_str = if arguments.len() <= 2 && arguments[2] != "-a" {
-    let current_dir = env::current_dir();
-    let binding = current_dir.unwrap();
-        binding.as_path().to_str().unwrap().to_string()
-    } else  {
-        arguments[2..].join("")
+    let mut param = false;
+    let path_str = if arguments.len() <= 1 {
+        env::current_dir().unwrap().to_str().unwrap().to_string()
+    } else if arguments.len() == 2 && arguments[1] == "-a" {
+        param = true;
+        env::current_dir().unwrap().to_str().unwrap().to_string()
+    } else if arguments.len() == 2 {
+        arguments[1].clone()
+    } else if arguments.len() == 3 && arguments[1] == "-a" {
+        param = true;
+        arguments[2].clone()
+    } else {
+        println!("Usage: ls [-a] [path]");
+        return;
     };
 
     let path = PathBuf::from(path_str);
-    print_directories(&path);
+    print_directories(&path, param);
 }
 
-fn print_directories(path: &PathBuf) {
+fn print_directories(path: &PathBuf,param:bool) {
     match fs::read_dir(path) {
         Ok(entries) => {
             for entry in entries {
@@ -81,10 +87,20 @@ fn print_directories(path: &PathBuf) {
                     Ok(entry) => {
                         let file_name = entry.file_name();
                         if let Some(name) = file_name.to_str() {
+                            let is_hidden = name.starts_with('.');
                             if entry.path().is_dir()  {
-                                println!("\x1b[34m{}\x1b[0m", name);
+
+                                if is_hidden && param {
+                                    println!("\x1b[34m{}\x1b[0m", name); 
+                                } else if !is_hidden {
+                                    println!("\x1b[34m{}\x1b[0m", name); 
+                                }      
                             } else {
-                                println!("{}", name);
+                                if is_hidden && param {
+                                    println!("{}", name); 
+                                } else if !is_hidden {
+                                    println!("{}", name);
+                                }
                             }
                             
                         } else {
@@ -110,7 +126,14 @@ fn find(arguments: Vec<String>) {
         return;
     }
 
+    let argument:bool = false;
 
+    
+    if arguments[2] == "-delete" {
+
+    }
+
+// find  -delete file_name
     let file_name = &arguments[2];
 
     let path = if arguments.len() == 3 {
