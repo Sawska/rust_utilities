@@ -60,9 +60,9 @@ fn echo(arguments: Vec<String>) {
 
 fn ls(arguments: Vec<String>) {
     let mut param = false;
-    let path_str = if arguments.len() <= 1 {
+    let path_str = if arguments.len() <= 2 {
         env::current_dir().unwrap().to_str().unwrap().to_string()
-    } else if arguments.len() == 2 && arguments[1] == "-a" {
+    } else if arguments.len() == 3 && arguments[2] == "-a" {
         param = true;
         env::current_dir().unwrap().to_str().unwrap().to_string()
     } else if arguments.len() == 2 {
@@ -70,9 +70,10 @@ fn ls(arguments: Vec<String>) {
     } else if arguments.len() == 3 && arguments[1] == "-a" {
         param = true;
         arguments[2].clone()
+    } else if arguments.len() == 4 {
+            arguments[3].clone()
     } else {
-        println!("Usage: ls [-a] [path]");
-        return;
+        arguments[2].clone()
     };
 
     let path = PathBuf::from(path_str);
@@ -121,25 +122,36 @@ fn print_directories(path: &PathBuf,param:bool) {
 
 
 fn find(arguments: Vec<String>) {
-    if arguments.len() <= 2 {
+    if (arguments.len() <= 2) || (arguments[2] == "-delete" && arguments.len() > 5) {
         error("find", "not enough arguments");
         return;
     }
-
-    let argument:bool = false;
+    let mut argument:bool = false;
 
     
     if arguments[2] == "-delete" {
-
+        argument = true;
     }
 
-// find  -delete file_name
-    let file_name = &arguments[2];
 
-    let path = if arguments.len() == 3 {
+    // let file_name = &arguments[2];
+
+    let file_name= if  argument {
+        &arguments[3]
+    } else {
+        &arguments[2]
+    };
+
+
+
+
+
+    let path = if (arguments.len() == 3  && !argument) || (arguments.len() == 4 && argument)  {
         let current_dir = env::current_dir();
     let binding = current_dir.unwrap();
         binding.as_path().to_str().unwrap().to_string()
+    } else if arguments.len() == 3 && !argument {
+        arguments[3..].join("")
     } else {
         arguments[3..].join("")
     };
